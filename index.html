@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 뉴스 요약 에이전트</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1>AI 뉴스 요약 에이전트</h1>
+            <p class="app-subtitle">네이버 뉴스 API와 AI 모델을 활용한 스마트 뉴스 요약 서비스</p>
+        </header>
+
+        <!-- API 설정 섹션 -->
+        <section class="card api-config">
+            <div class="card__body">
+                <div class="config-header" onclick="toggleApiConfig()">
+                    <h3>API 설정</h3>
+                    <span class="toggle-icon" id="configToggle">▼</span>
+                </div>
+                <div class="config-content" id="configContent">
+                    <div class="config-section">
+                        <h4>네이버 뉴스 API</h4>
+                        <div class="form-group">
+                            <label class="form-label">Client ID</label>
+                            <input type="text" class="form-control" id="naverClientId" placeholder="네이버 Client ID를 입력하세요">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Client Secret</label>
+                            <input type="password" class="form-control" id="naverClientSecret" placeholder="네이버 Client Secret을 입력하세요">
+                        </div>
+                        <div class="api-info">
+                            <p>📌 <a href="https://developers.naver.com/" target="_blank">네이버 개발자센터</a>에서 애플리케이션 등록 후 발급받으세요</p>
+                        </div>
+                    </div>
+
+                    <div class="config-section">
+                        <h4>AI 모델 API</h4>
+                        <div class="form-group">
+                            <label class="form-label">OpenAI API Key</label>
+                            <input type="password" class="form-control" id="openaiKey" placeholder="OpenAI API 키를 입력하세요">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Anthropic API Key</label>
+                            <input type="password" class="form-control" id="anthropicKey" placeholder="Anthropic API 키를 입력하세요">
+                        </div>
+                        <div class="api-info">
+                            <p>📌 <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a> 또는 <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>에서 발급받으세요</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 검색 섹션 -->
+        <section class="card search-section">
+            <div class="card__body">
+                <div class="form-group">
+                    <label class="form-label">검색 키워드</label>
+                    <input type="text" class="form-control" id="searchKeyword" placeholder="검색할 뉴스 키워드를 입력하세요" value="인공지능">
+                </div>
+
+                <div class="search-options">
+                    <div class="form-group">
+                        <label class="form-label">AI 모델 선택</label>
+                        <select class="form-control" id="aiModel">
+                            <option value="openai">OpenAI GPT-4</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">요약할 기사 수: <span id="articleCountValue">5</span></label>
+                        <input type="range" class="slider" id="articleCount" min="1" max="10" value="5">
+                    </div>
+                </div>
+
+                <button class="btn btn--primary btn--full-width" id="searchBtn" onclick="searchAndSummarize()">
+                    뉴스 검색 및 요약
+                </button>
+            </div>
+        </section>
+
+        <!-- 통계 섹션 -->
+        <section class="stats-section hidden" id="statsSection">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalArticles">0</div>
+                    <div class="stat-label">처리된 기사</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avgSummaryLength">0</div>
+                    <div class="stat-label">평균 요약 길이</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="processingTime">0</div>
+                    <div class="stat-label">처리 시간(초)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 로딩 표시 -->
+        <div class="loading-container hidden" id="loadingContainer">
+            <div class="loading-spinner"></div>
+            <p>뉴스를 검색하고 AI 요약을 생성하고 있습니다...</p>
+        </div>
+
+        <!-- 결과 섹션 -->
+        <section class="results-section" id="resultsSection">
+            <div class="results-header hidden" id="resultsHeader">
+                <div class="flex justify-between items-center">
+                    <h3>요약 결과</h3>
+                    <div class="result-actions">
+                        <button class="btn btn--secondary btn--sm" onclick="exportSummaries()">텍스트로 내보내기</button>
+                        <button class="btn btn--outline btn--sm" onclick="clearResults()">결과 지우기</button>
+                    </div>
+                </div>
+            </div>
+            <div class="results-container" id="resultsContainer"></div>
+        </section>
+
+        <!-- 에러 메시지 -->
+        <div class="error-message hidden" id="errorMessage">
+            <div class="error-content">
+                <span class="error-icon">⚠️</span>
+                <span class="error-text" id="errorText"></span>
+                <button class="error-close" onclick="hideError()">×</button>
+            </div>
+        </div>
+
+        <!-- 데모 안내 -->
+        <section class="card demo-notice">
+            <div class="card__body">
+                <h4>🎯 데모 버전 안내</h4>
+                <p>이 애플리케이션은 데모 버전입니다. 실제 API 키 없이도 샘플 데이터로 기능을 체험할 수 있습니다.</p>
+                <ul>
+                    <li>API 키를 입력하지 않으면 샘플 뉴스 데이터를 사용합니다</li>
+                    <li>실제 서비스에서는 네이버, OpenAI, Anthropic API 키가 필요합니다</li>
+                    <li>현재 "인공지능" 키워드로 검색을 시도해보세요</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
