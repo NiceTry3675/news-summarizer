@@ -46,8 +46,7 @@
 2. 로그인 후 '애플리케이션 등록' 클릭
 3. 다음 정보로 애플리케이션 등록:
    - 애플리케이션 이름: AI 뉴스 요약 에이전트
-   - 사용 API: 검색
-   - 웹 서비스 URL: http://localhost (로컬 테스트용)
+   - 사용 API: 검색 <-이때 자신이 원하는 사이트를 한정지어 주세요. 예)뉴스를 원한다면 https://news.naver.com/
 4. 등록 완료 후 Client ID와 Client Secret 복사
 5. 귀찮으시면 이거 쓰세요 Client ID = HR1ViOWJh1QauFSYrqqH
 Client Secret = 83RXfyuce_
