@@ -49,6 +49,8 @@
    - 사용 API: 검색
    - 웹 서비스 URL: http://localhost (로컬 테스트용)
 4. 등록 완료 후 Client ID와 Client Secret 복사
+5. 귀찮으시면 이거 쓰세요 Client ID = HR1ViOWJh1QauFSYrqqH
+Client Secret = 83RXfyuce_
 
 ### 2. AI 모델 API (택 1)
 
@@ -151,7 +153,7 @@ pip install streamlit openai anthropic requests
 
 ## 📞 지원
 
-문제가 발생하거나 개선 사항이 있으시면 이슈를 등록해 주세요.
+문제가 발생하거나 개선 사항이 있으시면 이슈를 등록하거나 gpt한테 물어보세요.
 
 ## 📄 라이선스
 
