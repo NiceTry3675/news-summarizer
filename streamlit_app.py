@@ -19,6 +19,12 @@ st.set_page_config(
 # 세션 상태 초기화
 if 'bookmarks' not in st.session_state:
     st.session_state.bookmarks = []
+if 'bookmark_counter' not in st.session_state:
+    st.session_state.bookmark_counter = 0
+if 'bookmark_message' not in st.session_state:
+    st.session_state.bookmark_message = None
+if 'search_results' not in st.session_state:
+    st.session_state.search_results = None
 
 # 앱 제목
 st.title("AI 뉴스 요약 에이전트")
@@ -91,16 +97,58 @@ with st.sidebar:
     # 북마크 표시
     st.markdown("---")
     st.subheader("📑 저장된 뉴스")
+    
+    # 북마크 전체 삭제 버튼
+    if st.session_state.bookmarks:
+        col_clear1, col_clear2 = st.columns([1, 1])
+        with col_clear1:
+            if st.button("🗑️ 전체 삭제", key="clear_all_bookmarks"):
+                st.session_state.bookmarks = []
+                st.success("모든 북마크가 삭제되었습니다!")
+                st.rerun()
+        with col_clear2:
+            st.write(f"총 {len(st.session_state.bookmarks)}개")
+    
+    # 북마크 목록 표시
     if st.session_state.bookmarks:
         for i, bookmark in enumerate(st.session_state.bookmarks):
-            with st.expander(f"📌 {bookmark['title'][:30]}..."):
-                st.write(f"**요약:** {bookmark['summary']}")
+            with st.expander(f"📌 {bookmark['title'][:25]}..."):
+                st.write(f"**요약:** {bookmark['summary'][:100]}...")
                 st.write(f"**출처:** {bookmark['source']}")
-                if st.button(f"삭제", key=f"delete_{i}"):
-                    st.session_state.bookmarks.pop(i)
-                    st.rerun()
+                st.write(f"**저장 시간:** {bookmark.get('saved_at', '정보 없음')}")
+                
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    if st.button("🔗 원문 보기", key=f"view_bookmark_{i}"):
+                        st.markdown(f"[원문 링크]({bookmark['url']})")
+                with col2:
+                    if st.button("❌ 삭제", key=f"delete_bookmark_{i}"):
+                        st.session_state.bookmarks.pop(i)
+                        st.success("북마크가 삭제되었습니다!")
+                        st.rerun()
     else:
-        st.write("저장된 뉴스가 없습니다.")
+        st.info("저장된 뉴스가 없습니다.")
+
+# 북마크 추가 함수
+def add_bookmark(news, analysis):
+    """북마크 추가 함수"""
+    bookmark_data = {
+        "title": news['title'].replace('<b>', '').replace('</b>', ''),
+        "summary": analysis.get('summary', ''),
+        "source": news.get('source', ''),
+        "url": news['url'],
+        "saved_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "api_source": news.get('api_source', ''),
+        "id": st.session_state.bookmark_counter
+    }
+    
+    # 중복 확인 (URL 기준)
+    existing_urls = [bookmark['url'] for bookmark in st.session_state.bookmarks]
+    if bookmark_data['url'] not in existing_urls:
+        st.session_state.bookmarks.append(bookmark_data)
+        st.session_state.bookmark_counter += 1
+        return True
+    return False
 
 # 메인 화면
 # 검색어 입력
@@ -122,6 +170,15 @@ with col4:
     enable_sentiment = st.checkbox("감정 분석 포함", value=True)
 with col5:
     enable_keywords = st.checkbox("키워드 추출 포함", value=True)
+
+# 북마크 메시지 표시
+if st.session_state.bookmark_message:
+    if st.session_state.bookmark_message['type'] == 'success':
+        st.success(st.session_state.bookmark_message['text'])
+    elif st.session_state.bookmark_message['type'] == 'warning':
+        st.warning(st.session_state.bookmark_message['text'])
+    # 메시지 표시 후 초기화
+    st.session_state.bookmark_message = None
 
 # 검색 버튼
 search_pressed = st.button("뉴스 검색 및 요약", type="primary")
@@ -375,6 +432,7 @@ if search_pressed:
                 
                 if not news_results:
                     st.info("검색 결과가 없습니다. 다른 키워드로 시도해보세요.")
+                    st.session_state.search_results = None
                 else:
                     st.success(f"{len(news_results)}개의 뉴스를 찾았습니다.")
                     
@@ -399,75 +457,84 @@ if search_pressed:
                         progress_bar.progress((i + 1) / len(news_results))
                         time.sleep(0.1)  # UI 업데이트를 위한 짧은 지연
                     
-                    # 결과 표시
-                    for i, item in enumerate(analyzed_news):
-                        news = item["original"]
-                        analysis = item["analysis"]
-                        
-                        with st.container():
-                            st.subheader(f"{i+1}. {news['title'].replace('<b>', '').replace('</b>', '')}")
-                            
-                            # 뉴스 정보 및 분석 결과
-                            col1, col2 = st.columns([1, 4])
-                            with col1:
-                                st.write(f"**출처:** {news.get('source', '정보 없음')}")
-                                # 날짜 형식 처리
-                                published_date = news.get('publishedAt', '정보 없음')
-                                if published_date != '정보 없음':
-                                    if news.get('api_source') == 'newsapi':
-                                        try:
-                                            parsed_date = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
-                                            formatted_date = parsed_date.strftime('%Y-%m-%d')
-                                        except:
-                                            formatted_date = published_date[:10]
-                                    else:
-                                        formatted_date = published_date[:10]
-                                else:
-                                    formatted_date = '정보 없음'
-                                st.write(f"**날짜:** {formatted_date}")
-                                st.write(f"**API:** {news.get('api_source', '').upper()}")
-                                
-                                # 북마크 버튼
-                                if st.button(f"📑 저장", key=f"bookmark_{i}"):
-                                    bookmark_data = {
-                                        "title": news['title'].replace('<b>', '').replace('</b>', ''),
-                                        "summary": analysis.get('summary', ''),
-                                        "source": news.get('source', ''),
-                                        "url": news['url']
-                                    }
-                                    st.session_state.bookmarks.append(bookmark_data)
-                                    st.success("뉴스가 저장되었습니다!")
-                                    time.sleep(1)
-                                    st.rerun()
-                            
-                            with col2:
-                                st.write(f"**원문:** {news['description'].replace('<b>', '').replace('</b>', '')}")
-                                st.write("**AI 요약:**")
-                                st.info(analysis.get('summary', '요약 없음'))
-                                
-                                # 감정 분석 결과
-                                if enable_sentiment and 'sentiment' in analysis:
-                                    st.write("**감정 분석:**")
-                                    sentiment = analysis['sentiment']
-                                    if '긍정' in sentiment:
-                                        st.success(f"😊 {sentiment}")
-                                    elif '부정' in sentiment:
-                                        st.error(f"😔 {sentiment}")
-                                    else:
-                                        st.info(f"😐 {sentiment}")
-                                
-                                # 키워드 추출 결과
-                                if enable_keywords and 'keywords' in analysis:
-                                    st.write("**주요 키워드:**")
-                                    keywords = analysis['keywords'].split(',')
-                                    keyword_tags = []
-                                    for kw in keywords[:5]:  # 최대 5개만 표시
-                                        keyword_tags.append(f"`{kw.strip()}`")
-                                    st.markdown(" ".join(keyword_tags))
-                            
-                            # 원문 링크
-                            st.markdown(f"[원문 보기]({news['url']})")
-                            st.divider()
+                    # 검색 결과를 세션 상태에 저장
+                    st.session_state.search_results = analyzed_news
+
+# 검색 결과 표시 (세션 상태에서 가져오기)
+if st.session_state.search_results:
+    analyzed_news = st.session_state.search_results
+    
+    # 결과 표시
+    for i, item in enumerate(analyzed_news):
+        news = item["original"]
+        analysis = item["analysis"]
+        
+        with st.container():
+            st.subheader(f"{i+1}. {news['title'].replace('<b>', '').replace('</b>', '')}")
+            
+            # 뉴스 정보 및 분석 결과
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                st.write(f"**출처:** {news.get('source', '정보 없음')}")
+                # 날짜 형식 처리
+                published_date = news.get('publishedAt', '정보 없음')
+                if published_date != '정보 없음':
+                    if news.get('api_source') == 'newsapi':
+                        try:
+                            parsed_date = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
+                            formatted_date = parsed_date.strftime('%Y-%m-%d')
+                        except:
+                            formatted_date = published_date[:10]
+                    else:
+                        formatted_date = published_date[:10]
+                else:
+                    formatted_date = '정보 없음'
+                st.write(f"**날짜:** {formatted_date}")
+                st.write(f"**API:** {news.get('api_source', '').upper()}")
+                
+                # 북마크 버튼 - 고유한 키 사용
+                bookmark_key = f"bookmark_{news.get('url', '')}_{i}"
+                if st.button(f"📑 저장", key=bookmark_key):
+                    if add_bookmark(news, analysis):
+                        st.session_state.bookmark_message = {
+                            'type': 'success',
+                            'text': '뉴스가 저장되었습니다!'
+                        }
+                    else:
+                        st.session_state.bookmark_message = {
+                            'type': 'warning',
+                            'text': '이미 저장된 뉴스입니다!'
+                        }
+                    st.rerun()
+            
+            with col2:
+                st.write(f"**원문:** {news['description'].replace('<b>', '').replace('</b>', '')}")
+                st.write("**AI 요약:**")
+                st.info(analysis.get('summary', '요약 없음'))
+                
+                # 감정 분석 결과
+                if enable_sentiment and 'sentiment' in analysis:
+                    st.write("**감정 분석:**")
+                    sentiment = analysis['sentiment']
+                    if '긍정' in sentiment:
+                        st.success(f"😊 {sentiment}")
+                    elif '부정' in sentiment:
+                        st.error(f"😔 {sentiment}")
+                    else:
+                        st.info(f"😐 {sentiment}")
+                
+                # 키워드 추출 결과
+                if enable_keywords and 'keywords' in analysis:
+                    st.write("**주요 키워드:**")
+                    keywords = analysis['keywords'].split(',')
+                    keyword_tags = []
+                    for kw in keywords[:5]:  # 최대 5개만 표시
+                        keyword_tags.append(f"`{kw.strip()}`")
+                    st.markdown(" ".join(keyword_tags))
+            
+            # 원문 링크
+            st.markdown(f"[원문 보기]({news['url']})")
+            st.divider()
 
 # 앱 사용 방법 안내
 with st.expander("📚 사용 방법"):
@@ -488,7 +555,7 @@ with st.expander("📚 사용 방법"):
     - **🎯 요약 길이 조절**: 짧게/보통/자세히 중 선택
     - **😊 감정 분석**: 뉴스의 긍정/부정/중립 감정 자동 분석
     - **🔑 키워드 추출**: 중요 키워드 자동 추출 및 태그 표시
-    - **📑 뉴스 북마크**: 관심 있는 뉴스 저장 및 관리
+    - **📑 뉴스 북마크**: 관심 있는 뉴스 저장 및 관리 (중복 방지)
     
     ### API 키 발급 방법
     
